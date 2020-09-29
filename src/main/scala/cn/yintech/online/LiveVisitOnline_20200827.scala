@@ -20,7 +20,7 @@ import org.apache.spark.streaming.receiver.Receiver
 /**
  *  直播间统计实时部分
  */
-object LiveVisitOnline {
+object LiveVisitOnline_20200827 {
 
   def main(args: Array[String]): Unit = {
 
@@ -47,9 +47,8 @@ object LiveVisitOnline {
 
       )
 
-    }).filter(v => v._8 == "0" || v._8 == "1").repartition(30)
+    }).filter(v => v._8 == "0" || v._8 == "1").repartition(20)
       .foreachRDD(rdd => {
-        println("rdd part:" + rdd.partitioner,rdd.id,rdd.name)
         rdd.foreachPartition(r => {
           // hbase连接初始化
           val conn = ConnectionFactory.createConnection(getHbaseConf)
@@ -61,89 +60,8 @@ object LiveVisitOnline {
           val jedis = RedisClient.pool.getResource
           val jedis2 = RedisClientNew.pool.getResource //新redis
           val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-          //创建mysql连接
-          val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
-          //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
-          val sql1 =
-            """
-              |UPDATE lcs_planner_live_info set
-              |circle_id = ?,
-              |notice_id = ?,
-              |p_uid = ?,
-              |live_title = ?,
-              |view_count = ?,
-              |first_view_count = ?,
-              |max_living_count = ?,
-              |new_follow_count = ?,
-              |comment_count = ?,
-              |comment_peoples = ?,
-              |gift_count = ?,
-              |share_count = ?,
-              |old_user_staying_average = ?,
-              |old_user_staying_max = ?,
-              |old_user_staying_min = ?,
-              |new_user_staying_average = ?,
-              |new_user_staying_max = ?,
-              |new_user_staying_min = ?,
-              |planner_comment_count = ?,
-              |planner_reply_count = ?,
-              |view_count_robot = ?,
-              |new_follow_count_robot = ?,
-              |comment_count_robot = ?,
-              |comment_peoples_robot = ?,
-              |gift_count_robot = ?,
-              |share_count_robot = ?
-              |
-              | WHERE notice_id = ? ;
-            """.stripMargin
-          val sql2 = """
-                       |insert into lcs_planner_live_info (
-                       |circle_id,
-                       |notice_id,
-                       |p_uid,
-                       |live_title,
-                       |view_count,
-                       |first_view_count,
-                       |max_living_count,
-                       |new_follow_count,
-                       |comment_count,
-                       |comment_peoples,
-                       |gift_count,
-                       |share_count,
-                       |old_user_staying_average,
-                       |old_user_staying_max,
-                       |old_user_staying_min,
-                       |new_user_staying_average,
-                       |new_user_staying_max,
-                       |new_user_staying_min,
-                       |planner_comment_count,
-                       |planner_reply_count,
-                       |view_count_robot,
-                       |new_follow_count_robot,
-                       |comment_count_robot,
-                       |comment_peoples_robot,
-                       |gift_count_robot,
-                       |share_count_robot,
-                       |c_time,
-                       |u_time
-                       |) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
-                       |FROM
-                       |	DUAL
-                       |WHERE
-                       |	NOT EXISTS (
-                       |		SELECT
-                       |			notice_id
-                       |		FROM
-                       |			lcs_planner_live_info
-                       |		WHERE
-                       |			notice_id = ?
-                       |	);
-                       |""".stripMargin
-
           try {
             r.foreach(v => {
-              val ps1 = connection.prepareStatement(sql1)
-              val ps2 = connection.prepareStatement(sql2)
               import scala.collection.JavaConversions._
               // redis上一次数据
               val oldValue = jedis.hget("lcs:live:visit:count", v._1)
@@ -167,15 +85,9 @@ object LiveVisitOnline {
                 var end = v._7
                 if (v._8 == "1")
                   end = sdf.format(new Date())
-                // 线上lcs_comment_master评论表
-                val comment = readComment(v._2, v._6, end) // u_type,uid,discussion_type,is_robot,reply_id
-                val commentGroup = comment.filter(_.head == "1").map(v => (v.head, v(1), v(2), v(3))).groupBy(_._3)
-                val commentGroupLcs = comment.filter(v => v.head == "2" && v(2) == "0" ) //理财师发言记录 u_type = 2 AND discussion_type = 0
-                // 老师发言数
-                val planner_comment_count = commentGroupLcs.count(_ (4) == "0")
-                // 老师回复数
-                val planner_reply_count = commentGroupLcs.count(_ (4) != "0")
-
+                // 评论表
+                val comment = readComment(v._2, v._6, end) // u_type,uid,discussion_type,is_robot
+                val commentGroup = comment.map(v => (v.head, v(1), v(2), v(3))).groupBy(_._3)
                 // ES数据用户观看记录
                 val onlineFromEs = ESConfig.searchOnlineAgg(v._2, v._6, end)
                 val onlineFromEsList = onlineFromEs.map(v => {
@@ -223,9 +135,9 @@ object LiveVisitOnline {
                 val hbaseAllNewUsers = getRow(htable2, v._1.reverse)
                 val allNewUsers = if (hbaseAllNewUsers.nonEmpty) hbaseAllNewUsers.get(0) else "0"
                 // 老用户
-                val oldUser = onlineFromEsList.filter(v =>  !allNewUsers.contains(v._3) || v._3 == "" ) // 用户不在新观众列表或者uid为空
+                val oldUser = onlineFromEsList.filter(v => !allNewUsers.contains(v._3))
                 // 新用户
-                val newUser = onlineFromEsList.filter(v => allNewUsers.contains(v._3) &&  v._3.length > 0 )// 用户在新观众列表且uid不为空
+                val newUser = onlineFromEsList.filter(v => allNewUsers.contains(v._3) &&  v._3.length > 0)
                 // 结果字段
                 val live_id = v._1
                 val circle_id = v._2
@@ -299,36 +211,13 @@ object LiveVisitOnline {
                 jsonObj.put("new_user_staying_max", new_user_staying_max + "")
                 jsonObj.put("new_user_staying_min", new_user_staying_min + "")
                 jsonObj.put("gift_income", gift_income + "")
-                jsonObj.put("planner_comment_count", planner_comment_count + "")
-                jsonObj.put("planner_reply_count", planner_reply_count + "")
-
-                // 直播场次维度结果存入redis hash
+                // 直播场次维度结果
                 jedis.hset("lcs:live:visit:count", live_id, jsonObj.toJSONString())
                 jedis2.hset("lcs:live:visit:count", live_id, jsonObj.toJSONString()) // 新redis
-                // 每场次uid存入set集合
-                val deviceidUseridMap = Map(onlineFromEsList.map(v => (v._5,v._3)).sortBy(_._2.length):_*)
-                jedis2.del(s"lcs:live:visit:uid:$live_id") // 清空set集合
-                deviceidUseridMap
-                  .foreach( v  => {
-                  if (v._2.length > 0){
-//                    jedis.sadd(s"lcs:live:visit:uid:$live_id",v._2)
-//                    jedis.expire(s"lcs:live:visit:uid:$live_id", 2*24*60*60 )
-                    // 新redis
-                    jedis2.sadd(s"lcs:live:visit:uid:$live_id",v._2)
-                    jedis2.expire(s"lcs:live:visit:uid:$live_id", 2*24*60*60 )
-                  } else if (v._1.length > 0){
-//                    jedis.sadd(s"lcs:live:visit:uid:$live_id",v._1)
-//                    jedis.expire(s"lcs:live:visit:uid:$live_id", 2*24*60*60 )
-                    // 新redis
-                    jedis2.sadd(s"lcs:live:visit:uid:$live_id",v._1)
-                    jedis2.expire(s"lcs:live:visit:uid:$live_id", 2*24*60*60 )
-                  }
-                })
 
-                // 理财师维度结果 存入redis hash
+                // 理财师维度结果
                 val lcsCountResultList = readNoticeId(lcs_id).map( v => {
-                  var jsonStr = jedis.hget("lcs:live:visit:count",v)
-                  if (jsonStr == null || jsonStr == "" ) jsonStr = "{}"
+                  val jsonStr = jedis.hget("lcs:live:visit:count",v)
                   val json = jsonParse(jsonStr)
                   val start_time = json.getOrElse("start_time","1970-01-01 08:00:00")
                   val end_time = json.getOrElse("end_time","1970-01-01 08:00:00")
@@ -373,77 +262,7 @@ object LiveVisitOnline {
                   jedis.hset("lcs:live:visit:count:circle", lcs_id , jsonObj2.toJSONString())
                 }
 
-                // 直播场次维度结果存入mysql
-                val nowTime = sdf.format(new Date())
-                ps1.setInt(1,circle_id.toInt)
-                ps1.setInt(2,live_id.toInt)
-                ps1.setLong(3,lcs_id.toLong)
-                ps1.setString(4,live_title)
-                ps1.setInt(5,view_count.toInt)
-                ps1.setInt(6,first_view_count.toInt)
-                ps1.setLong(7,max_living_count.toInt)
-                ps1.setInt(8,new_follow_count.toInt)
-                ps1.setInt(9,comment_count.toInt)
-                ps1.setLong(10,comment_peoples.toInt)
-                ps1.setInt(11,gift_count.toInt)
-                ps1.setInt(12,share_count.toInt)
-                ps1.setDouble(13,old_user_staying_average.toDouble)
-                ps1.setDouble(14,old_user_staying_max.toDouble)
-                ps1.setDouble(15,old_user_staying_min.toDouble)
-                ps1.setDouble(16,new_user_staying_average.toDouble)
-                ps1.setDouble(17,new_user_staying_max.toDouble)
-                ps1.setDouble(18,new_user_staying_min.toDouble)
-                ps1.setInt(19,planner_comment_count.toInt)
-                ps1.setInt(20,planner_reply_count.toInt)
-                ps1.setInt(21,view_count_robot.toInt)
-                ps1.setInt(22,new_follow_count_robot.toInt)
-                ps1.setInt(23,comment_count_robot.toInt)
-                ps1.setInt(24,comment_peoples_robot.toInt)
-                ps1.setInt(25,gift_count_robot.toInt)
-                ps1.setInt(26,share_count_robot.toInt)
-
-                ps1.setInt(27,live_id.toInt)
-                // ------------------------------------------------------
-                ps2.setInt(1,circle_id.toInt)
-                ps2.setInt(2,live_id.toInt)
-                ps2.setLong(3,lcs_id.toLong)
-                ps2.setString(4,live_title)
-                ps2.setInt(5,view_count.toInt)
-                ps2.setInt(6,first_view_count.toInt)
-                ps2.setLong(7,max_living_count.toInt)
-                ps2.setInt(8,new_follow_count.toInt)
-                ps2.setInt(9,comment_count.toInt)
-                ps2.setLong(10,comment_peoples.toInt)
-                ps2.setInt(11,gift_count.toInt)
-                ps2.setInt(12,share_count.toInt)
-                ps2.setDouble(13,old_user_staying_average.toDouble)
-                ps2.setDouble(14,old_user_staying_max.toDouble)
-                ps2.setDouble(15,old_user_staying_min.toDouble)
-                ps2.setDouble(16,new_user_staying_average.toDouble)
-                ps2.setDouble(17,new_user_staying_max.toDouble)
-                ps2.setDouble(18,new_user_staying_min.toDouble)
-                ps2.setInt(19,planner_comment_count.toInt)
-                ps2.setInt(20,planner_reply_count.toInt)
-                ps2.setInt(21,view_count_robot.toInt)
-                ps2.setInt(22,new_follow_count_robot.toInt)
-                ps2.setInt(23,comment_count_robot.toInt)
-                ps2.setInt(24,comment_peoples_robot.toInt)
-                ps2.setInt(25,gift_count_robot.toInt)
-                ps2.setInt(26,share_count_robot.toInt)
-                ps2.setString(27,nowTime)
-                ps2.setString(28,nowTime)
-
-                ps2.setInt(29,live_id.toInt)
-
-
-//                ps1.addBatch()
-//                ps2.addBatch()
-                ps1.executeUpdate()
-                ps1.close()
-                ps2.executeUpdate()
-                ps2.close()
               }
-
             })
           } catch {
             case e: Exception => e.printStackTrace()
@@ -451,8 +270,6 @@ object LiveVisitOnline {
             conn.close()
             jedis.close()
             jedis2.close()
-
-            connection.close()
           }
 
         })
@@ -483,7 +300,7 @@ object LiveVisitOnline {
       //      conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072vrw.mysql.rds.aliyuncs.com/licaishi_comment?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_comment_r", "@Licaishi201707")
       conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi_comment?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_comment_r", "3c05068bb4a5cd6")
       stmt = conn.createStatement
-      val sql = s"SELECT u_type,uid,discussion_type,is_robot,reply_id from  lcs_comment_master WHERE c_time >= '$startTime' and c_time <= '$endTime' and relation_id = '$extraId' "
+      val sql = s"SELECT u_type,uid,discussion_type,is_robot from  lcs_comment_master WHERE c_time >= '$startTime' and c_time <= '$endTime' and relation_id = '$extraId' and u_type = 1 "
       val rs: ResultSet = stmt.executeQuery(sql)
 
       // json数组
@@ -493,8 +310,7 @@ object LiveVisitOnline {
         val uid = rs.getLong("uid")
         val discussion_type = rs.getInt("discussion_type")
         val is_robot = rs.getInt("is_robot")
-        val reply_id = rs.getInt("reply_id")
-        result = result.::(Seq(u_type.toString, uid.toString, discussion_type.toString, is_robot.toString, reply_id.toString))
+        result = result.::(Seq(u_type.toString, uid.toString, discussion_type.toString, is_robot.toString))
       }
       // 完成后关闭
       rs.close()
@@ -531,7 +347,7 @@ object LiveVisitOnline {
 
     try {
       Class.forName("com.mysql.jdbc.Driver").newInstance()
-//                conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
+      //                conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
       conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
       stmt = conn.createStatement
       val sql = s"SELECT sum(divide_money) income from lcs_planner_income WHERE p_uid = $lcsId and `status` = 0 and c_time BETWEEN '$startTime' and '$endTime' "
@@ -575,8 +391,8 @@ object LiveVisitOnline {
 
     try {
       Class.forName("com.mysql.jdbc.Driver").newInstance()
-//      conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
-            conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
+      //      conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
+      conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
       stmt = conn.createStatement
       val sql = s"SELECT id from  lcs_circle_notice WHERE uid = $lcsId and live_status in (0,1) AND (`u_type`=2) AND (`type`=4) AND (`audit`=1) AND (`status`=0)  "
       val rs: ResultSet = stmt.executeQuery(sql)

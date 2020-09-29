@@ -66,7 +66,7 @@ public class ESConfig {
 
     public static void main(String[] args) throws IOException {
         int num = 0;
-        for (String i : searchOnlineAgg("61602", "2020-08-07 23:36:37", "2020-08-07 23:45:56")) {
+        for (String i : searchOnlineAgg("61266", "2020-08-28 10:26:35", "2020-08-28 11:26:35")) {
             if (i.contains("圈子视频直播")) {
                 num += 1;
                 System.out.println(i);

@@ -5,22 +5,20 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 import cn.yintech.esUtil.ESConfig
-import cn.yintech.eventLog.SparkReadEsRealTimeCount.{getBetweenDates, jsonParse }
+import cn.yintech.eventLog.SparkReadEsRealTimeCount.{getBetweenDates, jsonParse}
 import net.minidev.json.JSONArray
 import net.minidev.json.parser.JSONParser
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
-import org.elasticsearch.action.search.{SearchRequest, SearchResponse}
-import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery.ScoreMode
+import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 
 import scala.util.matching.Regex
 
-object SparkReadEsPro_yii2_elk_success {
+object SparkReadEsPro_yii2_elk_success_bak_20200821 {
   def main(args: Array[String]): Unit = {
     //  获取日期分区参数
     require(!(args == null || args.length != 2 ), "Required 'startDt & endDt' args")
@@ -54,7 +52,6 @@ object SparkReadEsPro_yii2_elk_success {
               esSearchPro_yii2_elk_success1(dt + " " + v._1 , dt + " " + v._2)
                 .union(esSearchPro_yii2_elk_success2(dt + " " + v._1 , dt + " " + v._2))
                 .union(esSearchPro_yii2_elk_success3(dt + " " + v._1 , dt + " " + v._2))
-                .union(esSearchPro_yii2_elk_success4(dt + " " + v._1 , dt + " " + v._2))
             })
           })
           .map(v => {
@@ -132,9 +129,7 @@ object SparkReadEsPro_yii2_elk_success {
           .toDF("deviceId","log_time","action","data","type","id","title","code","index_type","is_lock")
 
         // 3.悬浮球 xuanfuqiu
-//        val index_xuanfuqiu = value.filter( v => v._3 == "app/index" && v._4.contains("悬浮入口"))
-//        val index_xuanfuqiu = value.filter( v => v._3 == "app/index" && (v._4.contains("8月金股") || v._4.contains("领犇股")) )
-        val index_xuanfuqiu = value.filter( v => v._3 == "app/index" && v._4.contains("\"suspension\""))
+        val index_xuanfuqiu = value.filter( v => v._3 == "app/index" && v._4.contains("悬浮入口"))
           .map(v =>{
             var code = "-1"
             var title = ""
@@ -152,7 +147,7 @@ object SparkReadEsPro_yii2_elk_success {
             } catch {
               case e:Exception => println(e.getMessage)
             }
-            (v._1,v._2,v._3,suspensionStr,"xuanfuqiu","",title,code,"","")
+            (v._1,v._2,v._3,suspensionStr,"xuanfuqiu","",title,code,index_type,"")
           })
           .toDF("deviceId","log_time","action","data","type","id","title","code","index_type","is_lock")
 
@@ -335,52 +330,7 @@ object SparkReadEsPro_yii2_elk_success {
           }).filter(_._7 != "")
           .toDF("deviceId","log_time","action","data","type","id","title","code","index_type","is_lock")
 
-        // 8.live_xuanfuqiu 直播间悬浮球
-        val live_xuanfuqiu = value.filter( v => v._3 == "app/newInfoCircle" && v._4.contains("red_packet"))
-          .map(v =>{
-            var code = "-1"
-            var red_packet = ""
-            var title = ""
-            var name = ""
-            var p_uid = ""
-            try {
-              val dataJson = jsonParse(v._4)
-              val data2Str = dataJson.getOrElse("data", "")
-              code = dataJson.getOrElse("code", "")
-              val data2Json = jsonParse(data2Str)
-              val planner = data2Json.getOrElse("planner", "")
-              val circle = data2Json.getOrElse("circle", "")
-
-              val plannerJson = jsonParse(planner)
-              val planner_info = plannerJson.getOrElse("planner_info", "")
-              val planner_infoJson = jsonParse(planner_info)
-              p_uid = planner_infoJson.getOrElse("p_uid","")
-              name = planner_infoJson.getOrElse("name","")
-
-              val circleJson = jsonParse(circle)
-              red_packet = circleJson.getOrElse("red_packet","")
-
-            } catch {
-              case e:Exception => println(e.getMessage)
-            }
-            if (red_packet == ""){
-              ("", "", "", "", "", "", "", "", "", "")
-            } else {
-              try {
-                val red_packetJson = jsonParse(red_packet)
-                title = red_packetJson.getOrElse("title", "")
-              } catch {
-                case e: Exception => println(e.getMessage)
-              }
-
-              (v._1, v._2, v._3, red_packet, "live_xuanfuqiu", p_uid, title, code, "", "")
-            }
-          }).filter( v => v._7 != ""
-                                && Array("1625572687","71585119812862").contains(v._6))
-          .toDF("deviceId","log_time","action","data","type","id","title","code","index_type","is_lock")
-
-
-        //        val result = clientGuide.union(startUpAds).union(index_xuanfuqiu).union(index_banner).union(index_entrance).union(index_daily_gold_stock)
+//        val result = clientGuide.union(startUpAds).union(index_xuanfuqiu).union(index_banner).union(index_entrance).union(index_daily_gold_stock)
 //            .toDF("deviceId","log_time","action","data","type","id","title","code")
 
 
@@ -391,7 +341,6 @@ object SparkReadEsPro_yii2_elk_success {
         index_entrance.createOrReplaceGlobalTempView("table5")
         index_daily_gold_stock.createOrReplaceGlobalTempView("table6")
         channel_daily_gold_stock.createOrReplaceGlobalTempView("table7")
-        live_xuanfuqiu.createOrReplaceGlobalTempView("table8")
 
         spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
           " select * from global_temp.table2 ")
@@ -407,8 +356,6 @@ object SparkReadEsPro_yii2_elk_success {
           " select * from global_temp.table6 ")
         spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
           " select * from global_temp.table7 ")
-        spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
-          " select * from global_temp.table8 ")
       })
 
     })
@@ -529,62 +476,62 @@ object SparkReadEsPro_yii2_elk_success {
 
   }
 
-  def esSearchPro_yii2_elk_success4( startTime: String, endTime: String): List[String] = {
-    val client = ESConfig.client()
-    val boolBuilder = QueryBuilders.boolQuery()
-    val sourceBuilder = new SearchSourceBuilder()
-    //创建一个socket
-    val rangeQueryBuilder = QueryBuilders.rangeQuery("log_time.keyword") //新建range条件
-    rangeQueryBuilder.gte(startTime)
-    rangeQueryBuilder.lt(endTime)
-    boolBuilder.must(rangeQueryBuilder)
-    boolBuilder.must(QueryBuilders.matchQuery("action.keyword", "app/newInfoCircle"))
-    //    boolBuilder.must(QueryBuilders.nestedQuery("data",QueryBuilders.matchQuery("data.code", "0"))
 
-    //    val sortBuilder = SortBuilders.fieldSort("logtime").order(SortOrder.ASC) // 排训规则
-
-    sourceBuilder.query(boolBuilder) //设置查询，可以是任何类型的QueryBuilder。
-    sourceBuilder.from(0) //设置确定结果要从哪个索引开始搜索的from选项，默认为0
-    sourceBuilder.size(10000) //设置确定搜素命中返回数的size选项，默认为10
-    sourceBuilder.timeout(new TimeValue(60, TimeUnit.SECONDS)) //设置一个可选的超时，控制允许搜索的时间。
-    //    sourceBuilder.sort(sortBuilder)
-
-    sourceBuilder.fetchSource( Array[String]("log_time","deviceId","action","data"), Array[String]()) //第一个是获取字段，第二个是过滤的字段，默认获取全部
-    val searchRequest = new SearchRequest("pro-yii2-elk-success*") //索引
-    searchRequest.types("doc") //类型
-    searchRequest.source(sourceBuilder)
-
-    //    val searchResponse = client.search(searchRequest)
-    //    val hits = searchResponse.getHits.getHits
-
-    val searchHits: util.List[SearchHit] = ESConfig.scrollSearchAll(client, 10L, searchRequest)
-
-    System.out.println("esSearch total hits : " + searchHits.size)
-    client.close()
-    import scala.collection.JavaConverters._
-    searchHits.asScala.map(_.getSourceAsString).toList
-
+  def splitDayMinute () = {
+    val sdf = new SimpleDateFormat("HH:mm:ss")
+    val minutes1 = (0 until 360).flatMap( i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000+i*1000*60),"23:59:30"),
+          ("23:59:30","24:00:00"))
+      else
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60-30000)),
+          (sdf.format(-28800000+(i+1)*1000*60-30000),sdf.format(-28800000+(i+1)*1000*60)))
+    })
+    val minutes2 = (360 until 720).flatMap( i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000+i*1000*60),"23:59:30"),
+          ("23:59:30","24:00:00"))
+      else
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60-30000)),
+          (sdf.format(-28800000+(i+1)*1000*60-30000),sdf.format(-28800000+(i+1)*1000*60)))
+    })
+    val minutes3 = (720 until 1080).flatMap( i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000+i*1000*60),"23:59:30"),
+          ("23:59:30","24:00:00"))
+      else
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60-30000)),
+          (sdf.format(-28800000+(i+1)*1000*60-30000),sdf.format(-28800000+(i+1)*1000*60)))
+    })
+    val minutes4 = (1080 until 1440).flatMap( i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000+i*1000*60),"23:59:30"),
+          ("23:59:30","24:00:00"))
+      else
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60-30000)),
+          (sdf.format(-28800000+(i+1)*1000*60-30000),sdf.format(-28800000+(i+1)*1000*60)))
+    })
+    Array(minutes1,minutes2,minutes3,minutes4)
   }
 
-
-  def splitDayMinute2() = {
+  def splitDayMinute2 () = {
     val sdf = new SimpleDateFormat("HH:mm:ss")
-    val minutes1 = (0 until 360).flatMap(i => {
-      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    val minutes1 = (0 until 360).flatMap( i => {
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60)))
     })
-    val minutes2 = (360 until 720).flatMap(i => {
-      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    val minutes2 = (360 until 720).flatMap( i => {
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60)))
     })
-    val minutes3 = (720 until 1080).flatMap(i => {
-      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    val minutes3 = (720 until 1080).flatMap( i => {
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60)))
     })
-    val minutes4 = (1080 until 1440).flatMap(i => {
+    val minutes4 = (1080 until 1440).flatMap( i => {
       if (i == 1439)
-        Array((sdf.format(-28800000 + i * 1000 * 60), "24:00:00"))
+        Array((sdf.format(-28800000+i*1000*60),"24:00:00"))
       else
-        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+        Array((sdf.format(-28800000+i*1000*60),sdf.format(-28800000+(i+1)*1000*60)))
     })
-    Array(minutes1, minutes2, minutes3, minutes4)
+    Array(minutes1,minutes2,minutes3,minutes4)
   }
 
 }

@@ -14,13 +14,18 @@ import cn.yintech.online.LiveVisitOnline
 import net.minidev.json.parser.JSONParser
 import cn.yintech.online.LiveVisitOnline.jsonParse
 import cn.yintech.eventLog.SparkReadEsRealTimeCount.esSearch
-import cn.yintech.eventLog.SparkReadEsPro_yii2_elk_success.{splitDayMinute2,esSearchPro_yii2_elk_success1}
+import cn.yintech.eventLog.SparkReadEsPro_yii2_elk_success.{esSearchPro_yii2_elk_success1, splitDayMinute2}
+
+import scala.collection.mutable
 
 object Test {
   def main(args: Array[String]): Unit = {
+
+
+    println(esSearch("", "2020-09-21 18:01:00", "2020-09-21 18:02:00"))
 //    val jedis = RedisClient.pool.getResource
 //val json = jsonParse("{}")
-    println(esSearchPro_yii2_elk_success1("2020-07-21 00:00:00","2020-07-21 03:00:00").size)
+//    println(esSearchPro_yii2_elk_success1("2020-07-21 00:00:00","2020-07-21 03:00:00").size)
 //    println(esSearch("61193","2020-01-02 11:33:02","2020-01-02 12:37:16"))
 //    val jsonStr = jedis.hget("lcs:live:visit:count","49262")
 //    val json = jsonParse(jsonStr)
@@ -95,30 +100,33 @@ object Test {
 //      println()
 //    })
 //    jedis.close()
-
-    val sql =
-      """
-        |insert overwrite table dwd.dwd_base_event_1d
-        |PARTITION (dt='2020-08-05')
-        |select
-        |get_json_object(line,'$._track_id')  tmp_track_id,
-        |get_json_object(line,'$.time')  time,
-        |get_json_object(line,'$.type')  type,
-        |get_json_object(line,'$.distinct_id')  distinct_id,
-        |get_json_object(line,'$.lib')  lib,
-        |get_json_object(line,'$.event')  event,
-        |get_json_object(line,'$.properties')  properties,
-        |get_json_object(line,'$._flush_time')  tmp_flush_time,
-        |get_json_object(line,'$.map_id')  map_id,
-        |get_json_object(line,'$.user_id')  user_id,
-        |get_json_object(line,'$.recv_time')  recv_time,
-        |get_json_object(line,'$.extractor') extractor,
-        |get_json_object(line,'$.project_id') project_id,
-        |get_json_object(line,'$.project')  project,
-        |get_json_object(line,'$.ver')  ver
-        |from (select * from ods.ods_event_log_1d where dt='2020-08-05' and line is not null) t
-        |
-        |""".stripMargin
+//    val seq1: Seq[String] =  mutable.Seq("1","2")
+//    val seq2: Seq[String] =  mutable.Seq("3","4")
+//    val seq3: Seq[String] = seq1.union(seq2)
+//    println(seq1.union(seq2))
+//    val sql =
+//      """
+//        |insert overwrite table dwd.dwd_base_event_1d
+//        |PARTITION (dt='2020-08-05')
+//        |select
+//        |get_json_object(line,'$._track_id')  tmp_track_id,
+//        |get_json_object(line,'$.time')  time,
+//        |get_json_object(line,'$.type')  type,
+//        |get_json_object(line,'$.distinct_id')  distinct_id,
+//        |get_json_object(line,'$.lib')  lib,
+//        |get_json_object(line,'$.event')  event,
+//        |get_json_object(line,'$.properties')  properties,
+//        |get_json_object(line,'$._flush_time')  tmp_flush_time,
+//        |get_json_object(line,'$.map_id')  map_id,
+//        |get_json_object(line,'$.user_id')  user_id,
+//        |get_json_object(line,'$.recv_time')  recv_time,
+//        |get_json_object(line,'$.extractor') extractor,
+//        |get_json_object(line,'$.project_id') project_id,
+//        |get_json_object(line,'$.project')  project,
+//        |get_json_object(line,'$.ver')  ver
+//        |from (select * from ods.ods_event_log_1d where dt='2020-08-05' and line is not null) t
+//        |
+//        |""".stripMargin
 
 //    import scala.collection.JavaConversions
 //

@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 import cn.yintech.esUtil.ESConfig
 import net.minidev.json.JSONObject
 import net.minidev.json.parser.JSONParser
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.common.unit.TimeValue
@@ -16,6 +17,7 @@ import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 
+import scala.collection.{GenTraversableOnce, immutable}
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
@@ -23,7 +25,7 @@ object SparkReadEsRealTimeCount {
   def main(args: Array[String]): Unit = {
 
     //  获取日期分区参数
-    require(!(args == null || args.length != 2 ), "Required 'startDt & endDt' args")
+    require(!(args == null || args.length != 2), "Required 'startDt & endDt' args")
     val pattern = new Regex("\\d{4}[-]\\d{2}[-]\\d{2}")
     val dateSome1 = pattern findFirstIn args(0)
     val dateSome2 = pattern findFirstIn args(1)
@@ -31,69 +33,90 @@ object SparkReadEsRealTimeCount {
     require(dateSome2.isDefined, s"Required PARTITION args like 'yyyy-mm-dd' but find ${args(1)}")
     val startDt = dateSome1.get // 实际使用yyyy-mm-dd格式日期
     val endDt = dateSome2.get // 实际使用yyyy-mm-dd格式日期
-    println("startDate dt : " + startDt + ",endDate dt : "+endDt)
+    println("startDate dt : " + startDt + ",endDate dt : " + endDt)
 
     val spark = SparkSession.builder()
       .appName("SparkReadEsRealTimeCount")
       .config("hive.exec.dynamic.partition", "true")
-//      .master("local[*]")
+      //      .master("local[*]")
       .enableHiveSupport()
       .getOrCreate()
 
-    val lineDataSet = spark.read.format("jdbc")
-//            .option("url", "jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
-      .option("url", "jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
-      .option("driver", "com.mysql.jdbc.Driver")
-      .option("user", "licaishi_w")
-      .option("password", "a222541420a50a5")
-      .option("dbtable", "lcs_circle_notice")
-      .load()
-    lineDataSet.createOrReplaceTempView("lcs_circle_notice")
+    //    val lineDataSet = spark.read.format("jdbc")
+    ////            .option("url", "jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
+    //      .option("url", "jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
+    //      .option("driver", "com.mysql.jdbc.Driver")
+    //      .option("user", "licaishi_w")
+    //      .option("password", "a222541420a50a5")
+    //      .option("dbtable", "lcs_circle_notice")
+    //      .load()
+    //    lineDataSet.createOrReplaceTempView("lcs_circle_notice")
     import spark.implicits._
-    getBetweenDates(startDt,endDt).foreach( dt => {
+    getBetweenDates(startDt, endDt).foreach(dt => {
       val sdf = new SimpleDateFormat("yyyy-MM-dd")
 
       val cal1 = Calendar.getInstance()
       cal1.setTime(sdf.parse(dt))
-      cal1.add(Calendar.DAY_OF_YEAR,1)
+      cal1.add(Calendar.DAY_OF_YEAR, 1)
       val dt_add1 = sdf.format(cal1.getTime)
 
       val cal2 = Calendar.getInstance()
       cal2.setTime(sdf.parse(dt))
-      cal2.add(Calendar.DAY_OF_YEAR,-1)
+      cal2.add(Calendar.DAY_OF_YEAR, -1)
       val dt_sub1 = sdf.format(cal2.getTime)
 
-      spark.sql(s"select id,circle_id,u_type,uid,title,cast(start_time as String) start_time,cast(end_time as String) end_time , live_status from lcs_circle_notice where start_time between '$dt_sub1' and '$dt_add1' and live_status = 0 order by id")
-        .map(row => (row.getLong(0).toString, row.getLong(1).toString, row.getInt(2).toString, row.getDecimal(3).toString, row.getString(4), row.getString(5), row.getString(6), row.getInt(7).toString))
-        .flatMap(v => {
-          esSearch(v._2,v._6,v._7).map( a => {
+      val minutes: RDD[(String, String)] = spark.sparkContext.parallelize(splitDayMinute2.flatMap(_.toList), 6)
+      minutes.flatMap(v => {
+        Thread.sleep(1000)
+        println(dt + " " + v._1 + "——" + dt + " " + v._2)
+        val esData = esSearch("", dt + " " + v._1, dt + " " + v._2)
+          .map(a => {
             val jsonObj = jsonParse(a)
             (
-              v._1,
-              v._6,
-              v._7,
-              jsonObj.getOrElse("extra_id",""),
-              jsonObj.getOrElse("device_id",""),
-              jsonObj.getOrElse("uid",""),
-              jsonObj.getOrElse("ext",""),
-              jsonObj.getOrElse("fr",""),
-              jsonObj.getOrElse("is_online",""),
-              jsonObj.getOrElse("p_uid",""),
-              jsonObj.getOrElse("c_time","")
+              jsonObj.getOrElse("c_time", ""),
+              jsonObj.getOrElse("device_id", ""),
+              jsonObj.getOrElse("ext", ""),
+              jsonObj.getOrElse("extra_id", ""),
+              jsonObj.getOrElse("fr", ""),
+              jsonObj.getOrElse("ip", ""),
+              jsonObj.getOrElse("is_online", ""),
+              jsonObj.getOrElse("logtime", ""),
+              jsonObj.getOrElse("p_uid", ""),
+              jsonObj.getOrElse("record_type", ""),
+              jsonObj.getOrElse("refer", ""),
+              jsonObj.getOrElse("source", ""),
+              jsonObj.getOrElse("type", ""),
+              jsonObj.getOrElse("u_type", ""),
+              jsonObj.getOrElse("uid", "")
             )
           })
-        })
-        .toDF("live_id","start_time","end_time","extra_id","device_id","uid","ext","fr","is_online","p_uid","c_time")
-        .coalesce(1)
+        esData
+      }).toDF(
+        "c_time",
+        "device_id",
+        "ext",
+        "extra_id",
+        "fr",
+        "ip",
+        "is_online",
+        "logtime",
+        "p_uid",
+        "record_type",
+        "refer",
+        "source",
+        "type",
+        "u_type",
+        "uid"
+      )
+        //          .coalesce(1)
         .createOrReplaceTempView("table1")
-      spark.sql(s"insert OVERWRITE table ods.ods_es_real_time_count_1d partition(dt='$dt') select * from table1 WHERE c_time between '$dt' and '$dt_add1'")
-      spark.sql(s"insert OVERWRITE table ods.ods_es_real_time_count_1d partition(dt='$dt_add1') select * from table1 WHERE c_time > '$dt_add1'")
+      spark.sql(s"insert OVERWRITE table ods.ods_es_real_time_count_1d partition(dt='$dt') select * from table1 ")
     })
 
     spark.stop()
   }
 
-  def esSearch(extraId : String , startTime: String, endTime: String): List[String] = {
+  def esSearch(extraId: String, startTime: String, endTime: String): List[String] = {
     val client = ESConfig.client()
     val boolBuilder = QueryBuilders.boolQuery()
     val sourceBuilder = new SearchSourceBuilder()
@@ -101,12 +124,14 @@ object SparkReadEsRealTimeCount {
     val rangeQueryBuilder = QueryBuilders.rangeQuery("logtime") //新建range条件
     if (startTime.contains("now")) rangeQueryBuilder.gte(startTime)
     else rangeQueryBuilder.gte(startTime.replace(" ", "T") + "+08:00") //开始时间
-    if (endTime.contains("now")) rangeQueryBuilder.lte(endTime)
-    else rangeQueryBuilder.lte(endTime.replace(" ", "T") + "+08:00") //结束时间
+    if (endTime.contains("now")) rangeQueryBuilder.lt(endTime)
+    else rangeQueryBuilder.lt(endTime.replace(" ", "T") + "+08:00") //结束时间
     boolBuilder.must(rangeQueryBuilder)
     if (extraId.length > 0) boolBuilder.must(QueryBuilders.matchQuery("extra_id", extraId))
     boolBuilder.must(rangeQueryBuilder)
-    boolBuilder.must(QueryBuilders.matchQuery("type", "圈子视频直播"))
+    boolBuilder.should(QueryBuilders.matchQuery("type", "圈子视频直播"))
+    boolBuilder.should(QueryBuilders.matchQuery("type", "圈子文字直播"))
+    boolBuilder.minimumShouldMatch(1)
 
     val sortBuilder = SortBuilders.fieldSort("logtime").order(SortOrder.ASC) // 排训规则
 
@@ -129,6 +154,7 @@ object SparkReadEsRealTimeCount {
     searchHits.asScala.map(_.getSourceAsString).toList
 
   }
+
   /**
    * json字符串解析
    *
@@ -174,6 +200,63 @@ object SparkReadEsRealTimeCount {
       tempStart.add(Calendar.DAY_OF_YEAR, 1)
     }
     buffer.toList
+  }
+
+  def splitDayMinute() = {
+    val sdf = new SimpleDateFormat("HH:mm:ss")
+    val minutes1 = (0 until 360).flatMap(i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:30"),
+          ("23:59:30", "24:00:00"))
+      else
+        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000)),
+          (sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes2 = (360 until 720).flatMap(i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:30"),
+          ("23:59:30", "24:00:00"))
+      else
+        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000)),
+          (sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes3 = (720 until 1080).flatMap(i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:30"),
+          ("23:59:30", "24:00:00"))
+      else
+        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000)),
+          (sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes4 = (1080 until 1440).flatMap(i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:30"),
+          ("23:59:30", "24:00:00"))
+      else
+        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000)),
+          (sdf.format(-28800000 + (i + 1) * 1000 * 60 - 30000), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    Array(minutes1, minutes2, minutes3, minutes4)
+  }
+
+  def splitDayMinute2() = {
+    val sdf = new SimpleDateFormat("HH:mm:ss")
+    val minutes1 = (0 until 360).flatMap(i => {
+      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes2 = (360 until 720).flatMap(i => {
+      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes3 = (720 until 1080).flatMap(i => {
+      Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    val minutes4 = (1080 until 1440).flatMap(i => {
+      if (i == 1439)
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:59"))
+      else
+        Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
+    })
+    Array(minutes1, minutes2, minutes3, minutes4)
   }
 
 }
