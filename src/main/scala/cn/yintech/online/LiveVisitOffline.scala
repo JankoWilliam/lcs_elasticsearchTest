@@ -74,7 +74,7 @@ object LiveVisitOffline {
         val jedis2 = RedisClientNew.pool.getResource
         val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         //创建mysql连接
-        val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
+        val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "licaishi_w", "a222541420a50a5")
         //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
         val sql1 =
           """

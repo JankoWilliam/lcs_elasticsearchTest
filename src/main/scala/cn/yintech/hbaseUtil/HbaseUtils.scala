@@ -25,7 +25,7 @@ object HbaseUtils {
     val conf: Configuration = HBaseConfiguration.create
 //    conf.addResource(".\\main\\resources\\hbase-site.xml")
     conf.set("hbase.zookeeper.property.clientPort","2181")
-    conf.set("hbase.zookeeper.quorum","bigdata002.sj.com,bigdata003.sj.com,bigdata004.sj.com")
+    conf.set("hbase.zookeeper.quorum","bigdata003.sj.com")
 //    conf.set("hbase.zookeeper.quorum","bigdata002,bigdata003,bigdata004")
     /*conf.set("spark.executor.memory","3000m")
     conf.set("hbase.master","master:60000")

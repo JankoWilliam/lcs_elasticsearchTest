@@ -13,16 +13,17 @@ import scala.util.matching.Regex
 import cn.yintech.online.LiveVisitOnline
 import net.minidev.json.parser.JSONParser
 import cn.yintech.online.LiveVisitOnline.jsonParse
-import cn.yintech.eventLog.SparkReadEsRealTimeCount.esSearch
-import cn.yintech.eventLog.SparkReadEsPro_yii2_elk_success.{esSearchPro_yii2_elk_success1, splitDayMinute2}
+import cn.yintech.eventLog.SparkReadEsRealTimeCount.{esSearch, getBetweenDates}
+import cn.yintech.eventLog.SparkReadEsPro_yii2_elk_success.{esSearchPro_yii2_elk_success, splitDayMinute2}
 
 import scala.collection.mutable
 
 object Test {
   def main(args: Array[String]): Unit = {
 
+//    esSearchPro_yii2_elk_success("2020-11-19 23:58:00","2020-11-19 24:00:00","app/index")
 
-    println(esSearch("", "2020-09-21 18:01:00", "2020-09-21 18:02:00"))
+    println(esSearch("", "2020-11-19 23:58:00","2020-11-19 23:59:59.999"))
 //    val jedis = RedisClient.pool.getResource
 //val json = jsonParse("{}")
 //    println(esSearchPro_yii2_elk_success1("2020-07-21 00:00:00","2020-07-21 03:00:00").size)

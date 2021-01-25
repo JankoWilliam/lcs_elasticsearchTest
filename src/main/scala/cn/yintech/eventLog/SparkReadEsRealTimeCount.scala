@@ -21,6 +21,9 @@ import scala.collection.{GenTraversableOnce, immutable}
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
+/**
+ * Spark抽取ES数据real_time_count/real_time_count
+ */
 object SparkReadEsRealTimeCount {
   def main(args: Array[String]): Unit = {
 
@@ -252,7 +255,7 @@ object SparkReadEsRealTimeCount {
     })
     val minutes4 = (1080 until 1440).flatMap(i => {
       if (i == 1439)
-        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:59"))
+        Array((sdf.format(-28800000 + i * 1000 * 60), "23:59:59.999")) // 使用24:00:00会报错
       else
         Array((sdf.format(-28800000 + i * 1000 * 60), sdf.format(-28800000 + (i + 1) * 1000 * 60)))
     })

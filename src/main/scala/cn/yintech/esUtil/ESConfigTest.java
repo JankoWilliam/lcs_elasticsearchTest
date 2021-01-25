@@ -35,6 +35,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 
+/**
+ * ES集群本地环境配置
+ */
 public class ESConfigTest {
 
     private static String hosts = "127.0.0.1"; // 集群地址，多个用,隔开

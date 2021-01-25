@@ -26,13 +26,10 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.metrics.cardinality.Cardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -41,10 +38,13 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 /**
  * ES集群线上环境（自建）配置
  */
-public class ESConfig {
-
-    private static String hosts = "115.28.252.78"; // 集群地址，多个用,隔开
-    private static int port = 9100; // 使用的端口号
+public class ESConfigNew {
+    // 外网链接
+    private static String hosts = "59.110.64.97"; // 集群地址，多个用,隔开
+    private static int port = 9200; // 使用的端口号
+    // 内网连接
+//    private static String hosts = "192.168.196.35"; // 集群地址，多个用,隔开
+//    private static int port = 9200; // 使用的端口号
     private static String schema = "http"; // 使用的协议
     private static ArrayList<HttpHost> hostList = null;
 
@@ -59,7 +59,7 @@ public class ESConfig {
 
     static {
         credentialsProvider.setCredentials(AuthScope.ANY,
-                new UsernamePasswordCredentials("elastic", "upvo%@ajUW4R")); // 认证信息
+                new UsernamePasswordCredentials("elastic", "yuMwMvn3?*qwLwegvSEG")); // 认证信息
         hostList = new ArrayList<HttpHost>();
         String[] hostStrs = hosts.split(",");
         for (String host : hostStrs) {
@@ -69,7 +69,7 @@ public class ESConfig {
 
     public static void main(String[] args) throws IOException {
         int num = 0;
-        for (String i : searchOnlineAgg("62710", "2020-10-21 19:59:45", "2020-10-21 20:23:22")) {
+        for (String i : searchOnlineAgg("61266", "2020-08-28 10:26:35", "2020-08-28 11:26:35")) {
             if (i.contains("圈子视频直播")) {
                 num += 1;
                 System.out.println(i);
