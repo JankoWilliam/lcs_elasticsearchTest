@@ -62,7 +62,7 @@ object LiveVisitOnline {
           val jedis2 = RedisClientNew.pool.getResource //新redis
           val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
           //创建mysql连接
-          val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "licaishi_w", "a222541420a50a5")
+          val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "syl_w", "naAm7kmYgaG7SrkO1mAT")
           //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
           val sql1 =
             """
@@ -532,7 +532,7 @@ object LiveVisitOnline {
     try {
       Class.forName("com.mysql.jdbc.Driver").newInstance()
 //                conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
-      conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "licaishi_w", "a222541420a50a5")
+      conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "syl_w", "naAm7kmYgaG7SrkO1mAT")
       stmt = conn.createStatement
       val sql = s"SELECT sum(divide_money) income from lcs_planner_income WHERE p_uid = $lcsId and `status` = 0 and c_time BETWEEN '$startTime' and '$endTime' "
       val rs: ResultSet = stmt.executeQuery(sql)
@@ -576,7 +576,7 @@ object LiveVisitOnline {
     try {
       Class.forName("com.mysql.jdbc.Driver").newInstance()
 //      conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
-            conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "licaishi_w", "a222541420a50a5")
+            conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "syl_w", "naAm7kmYgaG7SrkO1mAT")
       stmt = conn.createStatement
       val sql = s"SELECT id from  lcs_circle_notice WHERE uid = $lcsId and live_status in (0,1) AND (`u_type`=2) AND (`type`=4) AND (`audit`=1) AND (`status`=0)  "
       val rs: ResultSet = stmt.executeQuery(sql)
@@ -644,7 +644,7 @@ object LiveVisitOnline {
         try {
           Class.forName("com.mysql.jdbc.Driver").newInstance()
           //          conn = DriverManager.getConnection("jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "lcs_spider_r", "qE1$eB1*mF3}")
-          conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "licaishi_w", "a222541420a50a5")
+          conn = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "syl_w", "naAm7kmYgaG7SrkO1mAT")
           stmt = conn.createStatement
           val sdf = new SimpleDateFormat("yyyy-MM-dd")
           val today = sdf.format(new Date)

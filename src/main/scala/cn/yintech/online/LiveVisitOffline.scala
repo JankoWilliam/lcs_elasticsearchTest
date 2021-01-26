@@ -53,8 +53,8 @@ object LiveVisitOffline {
       //      .option("url", "jdbc:mysql://rm-2zebtm824um01072v5o.mysql.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
       .option("url", "jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=GMT%2B8&zeroDateTimeBehavior=convertToNull&tinyInt1isBit=false")
       .option("driver", "com.mysql.jdbc.Driver")
-      .option("user", "licaishi_w")
-      .option("password", "a222541420a50a5")
+      .option("user", "syl_w")
+      .option("password", "naAm7kmYgaG7SrkO1mAT")
       .option("dbtable", "lcs_circle_notice")
       .load()
     lineDataSet.createOrReplaceTempView("lcs_circle_notice")
@@ -74,7 +74,7 @@ object LiveVisitOffline {
         val jedis2 = RedisClientNew.pool.getResource
         val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         //创建mysql连接
-        val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "licaishi_w", "a222541420a50a5")
+        val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "syl_w", "naAm7kmYgaG7SrkO1mAT")
         //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
         val sql1 =
           """
