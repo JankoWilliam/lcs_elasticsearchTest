@@ -28,13 +28,10 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.metrics.cardinality.Cardinality;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -43,7 +40,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueMillis;
 /**
  * ES集群线上环境（自建）配置
  */
-public class ESConfig {
+public class ESConfig_20210304 {
 
     private static String hosts = "115.28.252.78"; // 集群地址，多个用,隔开
     private static int port = 9100; // 使用的端口号
@@ -71,12 +68,13 @@ public class ESConfig {
 
     public static void main(String[] args) throws IOException, ParseException {
         int num = 0;
-        for (String i : searchOnlineAggNew("62749", "2021-02-24 09:59:27", "2021-02-24 10:53:41")) {
+        for (String i : searchOnlineAgg("62749", "2021-02-24 09:59:27", "2021-02-24 10:53:41")) {
             if (i.contains("圈子视频直播")) {
                 JSONParser jp = new JSONParser();
                 JSONObject parse = (JSONObject)jp.parse(i);
                 num += 1;
-                System.out.println(i);
+//                System.out.println(i);
+                System.out.println(parse.getOrDefault("device_id",""));
             }
         }
 
@@ -221,103 +219,6 @@ public class ESConfig {
                         jsonObj.put("uid", bucket4.getKey().toString());
                         jsonObj.put("points", bucket4.getDocCount());
                         result.add(jsonObj.toJSONString());
-                    }
-                }
-            }
-        }
-
-        client.close();
-        return result;
-    }
-
-    /**
-     * ES查询新，2021-03-05，较上个方法多个聚合字段：时长
-     * @param extraId
-     * @param startTime
-     * @param endTime
-     * @return
-     * @throws IOException
-     */
-    public static List<String> searchOnlineAggNew(String extraId, String startTime, String endTime) throws IOException {
-
-        RestHighLevelClient client = client();
-        // bool查询
-        BoolQueryBuilder boolBuilder = QueryBuilders.boolQuery();
-        // bool子查询：范围查询
-        RangeQueryBuilder rangeQueryBuilder = QueryBuilders.rangeQuery("logtime"); //新建range条件
-        if (startTime.contains("now"))
-            rangeQueryBuilder.gte(startTime);
-        else
-            rangeQueryBuilder.gte(startTime.replace(" ", "T") + "+08:00"); //开始时间
-        if (endTime.contains("now"))
-            rangeQueryBuilder.lte(endTime);
-        else
-            rangeQueryBuilder.lte(endTime.replace(" ", "T") + "+08:00"); //结束时间
-        boolBuilder.must(rangeQueryBuilder);
-        if (extraId.length() > 0) {
-            boolBuilder.must(QueryBuilders.matchQuery("extra_id", extraId));
-        }
-//        boolBuilder.must(QueryBuilders.matchQuery("is_online", "1"));
-        // bool子查询：字符匹配查询
-        boolBuilder.should(QueryBuilders.matchQuery("type", "圈子视频直播"));
-        boolBuilder.should(QueryBuilders.matchQuery("type", "圈子文字直播"));
-        boolBuilder.minimumShouldMatch(1);
-
-        // 结果排序
-//        SortBuilder sortBuilder = SortBuilders.fieldSort("@timestamp").order(SortOrder.ASC);// 排训规则
-        // 新建查询源
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(boolBuilder); //设置查询，可以是任何类型的QueryBuilder。
-        sourceBuilder.from(0); //设置确定结果要从哪个索引开始搜索的from选项，默认为0
-        sourceBuilder.size(10000); //设置确定搜素命中返回数的size选项，默认为10
-        sourceBuilder.timeout(new TimeValue(60, TimeUnit.SECONDS)); //设置一个可选的超时，控制允许搜索的时间。
-        // 聚合操作
-        AggregationBuilder aggs1 = AggregationBuilders.terms("extra_id_dist").field("extra_id");
-        AggregationBuilder aggs2 = AggregationBuilders.terms("type_count").field("type");
-        AggregationBuilder aggs3 = AggregationBuilders.terms("device_id").field("device_id").size(1000000000);
-        AggregationBuilder aggs4 = AggregationBuilders.terms("uid").field("uid").size(1000000000);
-        AggregationBuilder aggs5 = AggregationBuilders.terms("sec").field("sec").size(1000000000).missing(""); //时长字段默认值为空字符串
-//        aggs1.subAggregation(aggs2);
-        aggs1.subAggregation(aggs2.subAggregation(aggs3.subAggregation(aggs4.subAggregation(aggs5))));
-        sourceBuilder.aggregation(aggs1);
-//        sourceBuilder.sort(sortBuilder);
-        // 第一个是获取字段，第二个是过滤的字段，默认获取全部
-        //sourceBuilder.fetchSource(new String[] {"fields.port","fields.entity_id","fields.message"}, new String[] {});
-        /**
-         * 制定索引库和类型表
-         */
-        SearchRequest searchRequest = new SearchRequest("real_time_count"); //索引：接口库——success
-        searchRequest.types("real_time_count"); //类型:接口请求记录
-        searchRequest.source(sourceBuilder);
-        // 深度查询：分页查询全量数据
-//        List<SearchHit> searchHits = ESConfig.scrollSearchAll(client, 10L, searchRequest);
-//        for (SearchHit hit : searchHits) {
-//            System.out.println("search -> " + hit.getSourceAsString());
-//        }
-//        System.out.println(searchHits.size());
-        SearchResponse searchResponse = client.search(searchRequest);
-
-        Terms terms1 = searchResponse.getAggregations().get("extra_id_dist");
-        List<String> result = new ArrayList<>();
-        JSONObject jsonObj = new JSONObject();
-        for (Terms.Bucket bucket1 : terms1.getBuckets()) {
-            Terms terms2 = bucket1.getAggregations().get("type_count");
-            for (Terms.Bucket bucket2 : terms2.getBuckets()) {
-//                System.out.println("key:" + bucket1.getKey().toString() + "###" + bucket2.getKey().toString() + ";value:" + bucket2.getDocCount());
-                Terms terms3 = bucket2.getAggregations().get("device_id");
-                for (Terms.Bucket bucket3 : terms3.getBuckets()) {
-                    Terms terms4 = bucket3.getAggregations().get("uid");
-                    for (Terms.Bucket bucket4 : terms4.getBuckets()) {
-                        Terms terms5 = bucket4.getAggregations().get("sec");
-                        for (Terms.Bucket bucket5 : terms5.getBuckets()) {
-                            jsonObj.put("extra_id", bucket1.getKey().toString());
-                            jsonObj.put("type", bucket2.getKey().toString());
-                            jsonObj.put("device_id", bucket3.getKey().toString());
-                            jsonObj.put("uid", bucket4.getKey().toString());
-                            jsonObj.put("sec", bucket5.getKey().toString());
-                            jsonObj.put("points", bucket5.getDocCount());
-                            result.add(jsonObj.toJSONString());
-                        }
                     }
                 }
             }

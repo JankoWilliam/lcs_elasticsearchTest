@@ -22,7 +22,7 @@ import scala.util.matching.Regex
  * 素材下发统计，数据抽取（素材点击统计取埋点数据，使用hivesql脚本，无spark代码）
  * Spark抽取ES数据pro-yii2-elk-success* /doc
  */
-object SparkReadEsPro_yii2_elk_success {
+object SparkReadEsPro_yii2_elk_success_bak_20210223 {
   def main(args: Array[String]): Unit = {
     //  获取日期分区参数
     require(!(args == null || args.length != 2), "Required 'startDt & endDt' args")
@@ -606,119 +606,6 @@ object SparkReadEsPro_yii2_elk_success {
           }).filter(_._5 != "")
           .toDF("deviceId", "log_time", "action", "data", "type", "id", "title", "code", "index_type", "is_lock")
 
-        // 17. index_live_notice 首页-预告位
-        val index_live_notice = value.filter(v => v._3 == "app/index" && v._4.contains("index_live_notice"))
-          .map(v => {
-            var code = "-1"
-            var data = ""
-            var id = ""
-            var title = ""
-            try {
-              val dataJson = jsonParse(v._4)
-              val dataStr = dataJson.getOrElse("data", "")
-              code = dataJson.getOrElse("code", "")
-              val data2Json = jsonParse(dataStr)
-              val index_live_noticeStr = data2Json.getOrElse("index_live_notice", "")
-              val index_live_noticeJson = jsonParse(index_live_noticeStr)
-              id = index_live_noticeJson.getOrElse("id", "")
-              title = index_live_noticeJson.getOrElse("title", "")
-
-              data = index_live_noticeStr
-            } catch {
-              case e: Exception => println(e.getMessage)
-            }
-
-            (v._1, v._2, v._3, data, "index_live_notice", id, title, code, "", "")
-
-          })
-          //          .filter( v => v._7 != "")
-          .toDF("deviceId", "log_time", "action", "data", "type", "id", "title", "code", "index_type", "is_lock")
-
-        // 18.index_recommend_live 首页-推荐直播
-        val index_recommend_live = value.filter(v => v._3 == "app/index" && v._4.contains("index_recommend_live"))
-          .flatMap(v => {
-            var code = "-1"
-            var index_recommend_liveStr = ""
-            try {
-              val dataJson = jsonParse(v._4)
-              val dataStr = dataJson.getOrElse("data", "")
-              code = dataJson.getOrElse("code", "")
-              val data2Json = jsonParse(dataStr)
-              index_recommend_liveStr = data2Json.getOrElse("index_recommend_live", "")
-
-            } catch {
-              case e: Exception => println(e.getMessage)
-            }
-            if (index_recommend_liveStr == null || index_recommend_liveStr == "" || index_recommend_liveStr == "null") {
-              None
-            } else {
-              var index_recommend_liveArray = Array("{}")
-              try {
-                val jsonParser = new JSONParser()
-                index_recommend_liveArray = jsonParser.parse(index_recommend_liveStr).asInstanceOf[JSONArray].toArray.map(v => if (v == null) "{}" else v.toString)
-              } catch {
-                case e: Exception => println(e.getMessage)
-              }
-              val dataArray = index_recommend_liveArray.map(r => {
-                var id = ""
-                var title = ""
-                var tag_text = ""
-                try {
-                  val rJson = jsonParse(r)
-                  id = rJson.getOrElse("id", "")
-                  title = rJson.getOrElse("title", "")
-                  tag_text = rJson.getOrElse("tag_text", "")
-                } catch {
-                  case e: Exception => println(e.getMessage)
-                }
-                (v._1, v._2, v._3, r, "index_recommend_live", id, title, code, tag_text, "")
-              })
-              dataArray
-            }
-          }).filter(_._5 != "")
-          .toDF("deviceId", "log_time", "action", "data", "type", "id", "title", "code", "index_type", "is_lock")
-
-        // 19.live_tab_recommend_live 直播tab-推荐
-        val live_tab_recommend_live = value.filter(v => v._3 == "app/compositeVideo" && v._4.contains("\"live\":"))
-          .flatMap(v => {
-            var code = "-1"
-            var liveStr = ""
-            try {
-              val dataJson = jsonParse(v._4)
-              val dataStr = dataJson.getOrElse("data", "")
-              code = dataJson.getOrElse("code", "")
-              val data2Json = jsonParse(dataStr)
-              liveStr = data2Json.getOrElse("live", "")
-
-            } catch {
-              case e: Exception => println(e.getMessage)
-            }
-            if (liveStr == null || liveStr == "" || liveStr == "null") {
-              None
-            } else {
-              var liveArray = Array("{}")
-              try {
-                val jsonParser = new JSONParser()
-                liveArray = jsonParser.parse(liveStr).asInstanceOf[JSONArray].toArray.map(v => if (v == null) "{}" else v.toString)
-              } catch {
-                case e: Exception => println(e.getMessage)
-              }
-              val dataArray = liveArray.map(r => {
-                var id = ""
-                var title = ""
-                try {
-                  val rJson = jsonParse(r)
-                  id = rJson.getOrElse("id", "")
-                  title = rJson.getOrElse("title", "")
-                } catch {
-                  case e: Exception => println(e.getMessage)
-                }
-                (v._1, v._2, v._3, r, "live_tab_recommend_live", id, title, code, "", "")
-              })
-              dataArray
-            }
-          }).filter(_._5 != "")
-          .toDF("deviceId", "log_time", "action", "data", "type", "id", "title", "code", "index_type", "is_lock")
 
         clientGuide.createOrReplaceGlobalTempView("table1")
         startUpAds.createOrReplaceGlobalTempView("table2")
@@ -739,11 +626,6 @@ object SparkReadEsPro_yii2_elk_success {
         live_tab_recommend_banner.createOrReplaceGlobalTempView("table15")
         lcs_main_banner.createOrReplaceGlobalTempView("table16")
 
-        index_live_notice.createOrReplaceGlobalTempView("table17")
-        index_recommend_live.createOrReplaceGlobalTempView("table18")
-        live_tab_recommend_live.createOrReplaceGlobalTempView("table19")
-
-//          spark.sqlContext.setConf("spark.sql.parquet.compression.codec","snappy")
         spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
           " select * from global_temp.table2 ")
         spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
@@ -778,14 +660,6 @@ object SparkReadEsPro_yii2_elk_success {
           " select * from global_temp.table15 ")
         spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
           " select * from global_temp.table16 ")
-
-
-        spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
-          " select * from global_temp.table17 ")
-        spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
-          " select * from global_temp.table18 ")
-        spark.sql(s"insert into ods.ods_es_Pro_yii2_elk_success_2_di partition(dt='$dt')" +
-          " select * from global_temp.table19 ")
 
 
       })

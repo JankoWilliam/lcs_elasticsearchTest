@@ -1,24 +1,21 @@
 package cn.yintech.online
 
-import java.sql.{Connection, DriverManager, ResultSet, SQLException, Statement}
+import java.sql.DriverManager
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import cn.yintech.esUtil.ESConfig
 import cn.yintech.hbaseUtil.HbaseUtils
-import net.minidev.json.JSONObject
-import net.minidev.json.parser.JSONParser
-import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.apache.hadoop.hbase.TableName
-import org.apache.hadoop.hbase.client.ConnectionFactory
-import cn.yintech.hbaseUtil.HbaseUtils.{getHbaseConf, getRow, setRow}
+import cn.yintech.hbaseUtil.HbaseUtils.{getRow, setRow}
 import cn.yintech.online.LiveVisitOnline.{jsonParse, readComment, readGiftIncome, readNoticeId}
 import cn.yintech.redisUtil.{RedisClient, RedisClientNew}
-import org.apache.spark.sql.SaveMode.Overwrite
+import net.minidev.json.JSONObject
+import org.apache.hadoop.hbase.TableName
+import org.apache.spark.sql.SparkSession
 
 import scala.util.matching.Regex
 
-object LiveVisitOffline {
+object LiveVisitOffline_20210304 {
   def main(args: Array[String]): Unit = {
 
     //saprk切入点
@@ -76,7 +73,8 @@ object LiveVisitOffline {
         //创建mysql连接
         val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&zeroDateTimeBehavior=convertToNull", "syl_w", "naAm7kmYgaG7SrkO1mAT")
         //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
-        val sql1 = """
+        val sql1 =
+          """
             |UPDATE lcs_planner_live_info set
             |circle_id = ?,
             |notice_id = ?,
@@ -176,20 +174,17 @@ object LiveVisitOffline {
 
           // ES数据用户观看记录
           println("ES searchOnlineAgg" + v._2, v._6, end)
-          // val onlineFromEs = ESConfig.searchOnlineAgg(v._2, v._6, end) //截止20210305，老板ES查询，每条打点数据代表30s时长
-          val onlineFromEs = ESConfig.searchOnlineAggNew(v._2, v._6, end) //自20210305，新版ES查询，新增时长字段sec代表这个打点的时长
+          val onlineFromEs = ESConfig.searchOnlineAgg(v._2, v._6, end)
           val onlineFromEsList = onlineFromEs.map(v => {
             val json = jsonParse(v)
-            val sec = scala.util.Try(json.getOrElse("sec", "").toInt).getOrElse(30) // ES打点日志时长字段s/秒，为空时默认30s
             (
               json.getOrElse("extra_id", ""),
               json.getOrElse("type", ""),
               json.getOrElse("uid", ""),
-              json.getOrElse("points", "").toInt * sec,// 点数*时长字段为总时长
+              json.getOrElse("points", "").toInt * 30,
               json.getOrElse("device_id", "")
             )
           }).filter(v => v._2 == "圈子视频直播" && v._5.length > 0)
-            .groupBy(v => (v._1, v._2, v._3, v._5)).map(v => (v._1._1, v._1._2, v._1._3, v._2.map(_._4).sum, v._1._4)).toSeq
           // ES实时数据
 //          val onlineFromEsCurrent = ESConfig.searchOnlineAgg(v._2, "now-60s", "now")
 

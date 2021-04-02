@@ -17,12 +17,10 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.receiver.Receiver
 
-import scala.collection.mutable
-
 /**
  *  直播间统计实时部分
  */
-object LiveVisitOnline {
+object LiveVisitOnline_20210304 {
 
   def main(args: Array[String]): Unit = {
 
@@ -66,8 +64,8 @@ object LiveVisitOnline {
           //创建mysql连接
           val connection = DriverManager.getConnection("jdbc:mysql://j8h7qwxzyuzs6bby07ek-rw4rm.rwlb.rds.aliyuncs.com/licaishi?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "syl_w", "naAm7kmYgaG7SrkO1mAT")
           //        val connection = DriverManager.getConnection("jdbc:mysql://localhost/test?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC", "root", "root")
-          // licaishi库lcs_planner_live_info表作为结果持久化，实现更新或插入
-          val sql1 = """
+          val sql1 =
+            """
               |UPDATE lcs_planner_live_info set
               |circle_id = ?,
               |notice_id = ?,
@@ -147,7 +145,7 @@ object LiveVisitOnline {
               val ps1 = connection.prepareStatement(sql1)
               val ps2 = connection.prepareStatement(sql2)
               import scala.collection.JavaConversions._
-              // redis上一批次统计数据
+              // redis上一次数据
               val oldValue = jedis.hget("lcs:live:visit:count", v._1)
               var old_max_living_count = 0 // 前次最高在线人数
               var old_first_view_count = 0 // 前次首次观看人数
@@ -157,7 +155,7 @@ object LiveVisitOnline {
               var pre_new_user_staying_max = 0
               var pre_new_user_staying_min = 0
 
-              if (oldValue != null) { // 上一批次统计数据不为空
+              if (oldValue != null) {
                 old_max_living_count = jsonParse(oldValue).getOrDefault("max_living_count", "0").toInt
                 old_first_view_count = jsonParse(oldValue).getOrDefault("first_view_count", "0").toInt
                 old_live_status = jsonParse(oldValue).getOrDefault("live_status", "-1").toInt
@@ -165,7 +163,7 @@ object LiveVisitOnline {
                 pre_new_user_staying_max = jsonParse(oldValue).getOrDefault("new_user_staying_max", "0").toInt
                 pre_new_user_staying_min = jsonParse(oldValue).getOrDefault("new_user_staying_min", "0").toInt
               }
-              if (old_live_status != 0) { //上个批次统计结果中直播状态不是0（未结束，既未完全统计）
+              if (old_live_status != 0) {
                 var end = v._7
                 if (v._8 == "1")
                   end = sdf.format(new Date())
@@ -179,22 +177,17 @@ object LiveVisitOnline {
                 val planner_reply_count = commentGroupLcs.count(_ (4) != "0")
 
                 // ES数据用户观看记录
-//                val onlineFromEs = ESConfig.searchOnlineAgg(v._2, v._6, end) //截止20210305，老板ES查询，每条打点数据代表30s时长
-                val onlineFromEs = ESConfig.searchOnlineAggNew(v._2, v._6, end) //自20210305，新版ES查询，新增时长字段sec代表这个打点的时长
+                val onlineFromEs = ESConfig.searchOnlineAgg(v._2, v._6, end)
                 val onlineFromEsList = onlineFromEs.map(v => {
                   val json = jsonParse(v)
-                  val sec = scala.util.Try(json.getOrElse("sec", "").toInt).getOrElse(30) // ES打点日志时长字段s/秒，为空时默认30s
                   (
                     json.getOrElse("extra_id", ""),
                     json.getOrElse("type", ""),
                     json.getOrElse("uid", ""),
-                    json.getOrElse("points", "").toInt * sec,// 点数*时长字段为总时长
+                    json.getOrElse("points", "").toInt * 30,
                     json.getOrElse("device_id", "")
                   )
                 }).filter(v => v._2 == "圈子视频直播" && v._5.length > 0)
-                // 上述数据根据extra_id、type、uid、device_id、时长字段sec 分组聚合求count得出的点数points，所以现在要sum聚合起来
-                  .groupBy(v => (v._1, v._2, v._3, v._5)).map(v => (v._1._1, v._1._2, v._1._3, v._2.map(_._4).sum, v._1._4)).toSeq
-
                 // ES实时数据
                 val onlineFromEsCurrent = ESConfig.searchOnlineAgg(v._2, "now-60s", "now")
 
