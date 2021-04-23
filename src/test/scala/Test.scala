@@ -23,10 +23,12 @@ object Test {
 
     //    esSearchPro_yii2_elk_success("2020-11-19 23:58:00","2020-11-19 24:00:00","app/index")
     //      println(scala.util.Try("".toDouble).getOrElse(30))
-    val tuple = mutable.Seq(("-", "a", 1, "a"), ("-", "a", 2, "a"), ("--", "b", 1, "b")).groupBy(v => (v._1, v._2, v._4)).map(v => (v._1,v._2.map(_._3).sum))
-      .map(v => (v._1._1,v._1._2,v._2,v._1._3))
+//    val tuple = mutable.Seq(("-", "a", 1, "a"), ("-", "a", 2, "a"), ("--", "b", 1, "b")).groupBy(v => (v._1, v._2, v._4)).map(v => (v._1,v._2.map(_._3).sum))
+    ////      .map(v => (v._1._1,v._1._2,v._2,v._1._3))
+    ////
+    ////    println(tuple)
 
-    println(tuple)
+    println(esSearch("","2021-04-20 18:59:00","2021-04-20 18:59:30"))
 
 //    println(esSearch("", "2020-11-19 23:58:00","2020-11-19 23:59:59.999"))
 //    val jedis = RedisClient.pool.getResource

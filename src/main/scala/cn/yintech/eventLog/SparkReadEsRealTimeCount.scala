@@ -90,7 +90,8 @@ object SparkReadEsRealTimeCount {
               jsonObj.getOrElse("source", ""),
               jsonObj.getOrElse("type", ""),
               jsonObj.getOrElse("u_type", ""),
-              jsonObj.getOrElse("uid", "")
+              jsonObj.getOrElse("uid", ""),
+              jsonObj.getOrElse("second", "")
             )
           })
         esData
@@ -109,7 +110,8 @@ object SparkReadEsRealTimeCount {
         "source",
         "type",
         "u_type",
-        "uid"
+        "uid",
+        "second"
       )
         //          .coalesce(1)
         .createOrReplaceTempView("table1")

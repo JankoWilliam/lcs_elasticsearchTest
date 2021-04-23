@@ -183,7 +183,7 @@ object LiveVisitOnline {
                 val onlineFromEs = ESConfig.searchOnlineAggNew(v._2, v._6, end) //自20210305，新版ES查询，新增时长字段sec代表这个打点的时长
                 val onlineFromEsList = onlineFromEs.map(v => {
                   val json = jsonParse(v)
-                  val sec = scala.util.Try(json.getOrElse("sec", "").toInt).getOrElse(30) // ES打点日志时长字段s/秒，为空时默认30s
+                  val sec = scala.util.Try(json.getOrElse("sec", "").toInt).getOrElse(30) // ES打点日志时长字段s/秒，为空时默认10s
                   (
                     json.getOrElse("extra_id", ""),
                     json.getOrElse("type", ""),

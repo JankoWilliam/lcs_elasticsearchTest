@@ -276,7 +276,7 @@ public class ESConfig {
         AggregationBuilder aggs2 = AggregationBuilders.terms("type_count").field("type");
         AggregationBuilder aggs3 = AggregationBuilders.terms("device_id").field("device_id").size(1000000000);
         AggregationBuilder aggs4 = AggregationBuilders.terms("uid").field("uid").size(1000000000);
-        AggregationBuilder aggs5 = AggregationBuilders.terms("sec").field("sec").size(1000000000).missing(""); //时长字段默认值为空字符串
+        AggregationBuilder aggs5 = AggregationBuilders.terms("sec").field("second").size(1000000000).missing("30"); //时长字段默认值为空字符串
 //        aggs1.subAggregation(aggs2);
         aggs1.subAggregation(aggs2.subAggregation(aggs3.subAggregation(aggs4.subAggregation(aggs5))));
         sourceBuilder.aggregation(aggs1);
